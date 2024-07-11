@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { uploadAudio } from '@/api/uploadAudio'
+import { RecordRTCPromisesHandler, StereoAudioRecorder } from 'recordrtc'
+import { onMounted, ref } from 'vue'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record.esm.js'
-import { ref, onMounted } from 'vue'
-import { uploadAudio } from '@/api/uploadAudio'
 
 const wavesurfer = ref<WaveSurfer | null>(null)
 const waveRecorder = ref<RecordPlugin | null>(null)
 const waveformRef = ref<HTMLElement | string>('')
+const mediaRecorder = ref<RecordRTCPromisesHandler | null>(null)
 
 const createWaveSurfer = () => {
   // Create an instance of WaveSurfer
@@ -27,8 +29,32 @@ const createWaveSurfer = () => {
   )
 }
 
-onMounted(() => {
+const createMediaRecorder = async () => {
+  try {
+    // Get access to the microphone for the media recorder
+    let stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    mediaRecorder.value = new RecordRTCPromisesHandler(stream, {
+      type: 'audio',
+      mimeType: 'audio/wav',
+      sampleRate: 44100,
+      numberOfAudioChannels: 1,
+      // good balance between quality and size for voice recordings
+      audioBitsPerSecond: 352800,
+      // use StereoAudioRecorder for WAV support
+      recorderType: StereoAudioRecorder,
+      // makes the blobs as chunks of 5000ms
+      timeSlice: 5000,
+      // this event will be fired every 5000ms and one time at the end of the recording
+      ondataavailable: uploadAudio
+    })
+  } catch (error) {
+    console.error('Error accessing microphone:', error)
+  }
+}
+
+onMounted(async () => {
   createWaveSurfer()
+  await createMediaRecorder()
 })
 
 const isPaused = ref(false)
@@ -37,24 +63,28 @@ const isRecording = ref(false)
 
 const startRecording = () => {
   waveRecorder?.value?.startRecording()
+  mediaRecorder.value?.startRecording()
   isActive.value = true
   isRecording.value = true
 }
 
 const pauseRecording = () => {
   waveRecorder?.value?.pauseRecording()
+  mediaRecorder?.value?.pauseRecording()
   isActive.value = false
   isPaused.value = true
 }
 
 const resumeRecording = () => {
   waveRecorder?.value?.resumeRecording()
+  mediaRecorder?.value?.resumeRecording()
   isPaused.value = false
   isActive.value = true
 }
 
 const stopRecording = () => {
   waveRecorder?.value?.stopRecording()
+  mediaRecorder?.value?.stopRecording()
   isActive.value = false
   isRecording.value = false
 }
