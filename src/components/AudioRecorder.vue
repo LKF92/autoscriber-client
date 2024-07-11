@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { uploadAudio } from '@/api/uploadAudio'
+import { sendAudioSession } from '@/api/sendAudioSession'
+import { sendChunk } from '@/api/sendChunk'
 import { RecordRTCPromisesHandler, StereoAudioRecorder } from 'recordrtc'
 import { onMounted, ref } from 'vue'
 import WaveSurfer from 'wavesurfer.js'
@@ -9,6 +10,8 @@ const wavesurfer = ref<WaveSurfer | null>(null)
 const waveRecorder = ref<RecordPlugin | null>(null)
 const waveformRef = ref<HTMLElement | string>('')
 const mediaRecorder = ref<RecordRTCPromisesHandler | null>(null)
+const audioSessionId = ref<string>('')
+const chunkNumber = ref<number>(0)
 
 const createWaveSurfer = () => {
   // Create an instance of WaveSurfer
@@ -45,7 +48,7 @@ const createMediaRecorder = async () => {
       // makes the blobs as chunks of 5000ms
       timeSlice: 5000,
       // this event will be fired every 5000ms and one time at the end of the recording
-      ondataavailable: uploadAudio
+      ondataavailable: (blob) => sendChunk(audioSessionId.value, chunkNumber.value++, blob)
     })
   } catch (error) {
     console.error('Error accessing microphone:', error)
@@ -62,6 +65,7 @@ const isActive = ref(false)
 const isRecording = ref(false)
 
 const startRecording = () => {
+  audioSessionId.value = crypto.randomUUID()
   waveRecorder?.value?.startRecording()
   mediaRecorder.value?.startRecording()
   isActive.value = true
@@ -82,11 +86,15 @@ const resumeRecording = () => {
   isActive.value = true
 }
 
-const stopRecording = () => {
+const stopRecording = async () => {
   waveRecorder?.value?.stopRecording()
-  mediaRecorder?.value?.stopRecording()
+  await mediaRecorder?.value?.stopRecording()
+
   isActive.value = false
   isRecording.value = false
+
+  const blob = await mediaRecorder?.value?.getBlob()
+  sendAudioSession(audioSessionId.value, blob, { size: blob?.size, format: blob?.type })
 }
 </script>
 

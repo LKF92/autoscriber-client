@@ -1,20 +1,32 @@
 <script setup lang="ts">
 import type { Recordings } from '@/types/recordings'
+import SessionVisualizer from './SessionVisualizer.vue'
+import { onMounted, ref } from 'vue'
 
-defineProps<{
-  recordings: Recordings[]
-}>()
+const recordings = ref<Recordings[]>([])
+
+const fetchSessions = async () => {
+  const response = await fetch('http://localhost:3000/sessions')
+  const data = await response.json()
+  console.log('data', data)
+  recordings.value = data
+}
+
+onMounted(() => {
+  fetchSessions()
+})
 </script>
 
 <template>
-  <div class="greetings">
+  <div>
     <h1>Your recordings</h1>
-    <h3>Click on the play button to listen to your recordings.</h3>
+    <h3>Click on the waveform to listen to your previous recordings.</h3>
     <ul>
-      <li v-for="recording in recordings" :key="recording.id">
-        <!-- <audio :src="recording.url" controls></audio> -->
-        <span>{{ recording.title }}</span>
-      </li>
+      <SessionVisualizer
+        v-for="recording in recordings"
+        :key="recording.id"
+        :recording="recording"
+      />
     </ul>
   </div>
 </template>

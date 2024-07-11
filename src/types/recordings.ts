@@ -1,5 +1,10 @@
 export type Recordings = {
   id: number
-  title: string
-  url: string
+  sessionId: string
+  audioFile: BinaryData
+  metadata: {
+    size: number
+    format: string
+  }
+  timestamp: string
 }
